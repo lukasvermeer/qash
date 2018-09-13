@@ -56,6 +56,31 @@
           <div id="chart"></div>
         </div>
       </div>
+      <div class="card">
+        <div class="card-header">
+          <h4>Transactions</h4>
+          <table class="table">
+            <thead>
+              <tr>
+                <th scope="col">Date</th>
+                <th scope="col">From</th>
+                <th scope="col">To</th>
+                <th scope="col">Description</th>
+                <th scope="col">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(t, index) in allTransactions">
+                <th scope="row">{{t.Datum}}</th>
+                <td>{{t['Rekening']}}</td>
+                <td>{{t['Naam / Omschrijving']}}<br />{{t['Tegenrekening']}}</td>
+                <td><span class="badge badge-pill badge-secondary">{{t['MutatieSoort']}}</span><br />{{t['Mededelingen']}}</td>
+                <td><span class="badge badge-pill" v-bind:class="[t['Af Bij']=='Af'?'badge-danger':'badge-success']">{{t['Af Bij']=='Af' ? '-' : '+'}}{{t['Bedrag (EUR)']}}</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <script>
@@ -114,6 +139,12 @@
           reader.readAsText(f);
         },
         // END FILE READ METHODS
+      },
+      computed: {
+        allTransactions: function() {
+          // TODO deduplication, etc.
+          return [].concat.apply([], this.persistentStorage.sourceFiles.map(x => x.data));
+        },
       },
       watch: {
         persistentStorage: {
