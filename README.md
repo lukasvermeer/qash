@@ -1,0 +1,2 @@
+# qash
+Personal finance analytics
