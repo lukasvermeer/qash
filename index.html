@@ -21,21 +21,32 @@
     <div id="app" class="container">
       <div class="row">
         <div class="col">
+          <h1>Qash <span class="text-muted">Personal Finance Analytics</span> <span class="badge badge-warning">PRE-ALPHA</span></h1>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <h4>Source files in local storage
+          <button class="btn btn-sm btn-outline-danger" v-if="hasStoredState" @click.prevent="clear()">
+            clear storage
+          </span></h4>
+        </div>
+        <ul class="list-group">
+          <li class="text-muted list-group-item d-flex justify-content-between align-items-center" v-if="!hasStoredState">
+            No data in local storage.
+          </li>
+          <li class="list-group-item d-flex justify-content-between align-items-center" v-for="(file, index) in persistentStorage.sourceFiles">
+              {{file.name}} <span class="text-muted">({{file.data.length}} transactions)</span>
+              <span class="badge badge-error badge-pill">
+                <a @click.prevent="deleteEntry(index)" href="#">delete</a>
+              </span>
+          </li>
+        </ul>
+        <div class="card-footer">
           <form>
-            <ul class="list-group">
-              <li class="list-group-item d-flex justify-content-between align-items-center" v-for="(file, index) in persistentStorage.sourceFiles">
-                  {{file.name}} <span class="text-muted">({{file.data.length}} transactions)</span>
-                  <span class="badge badge-error badge-pill">
-                    <a @click.prevent="deleteEntry(index)" href="#">delete</a>
-                  </span>
-              </li>
-            </ul>
             <div class="dropbox">
               <input type="file" multiple :disabled="ui.input.sourceFileAddDisabled" @change="filesChange($event.target.files)" accept=".csv" class="input-file">
-              <p>Drag your file(s) here to begin<br> or click to browse</p>
-            </div>
-            <div>
-              <a v-if="hasStoredState" @click.prevent="clear()" href="#">clear storage</a>
+              <p>Drag ING Bank .csv file(s) here to begin<br> or click to browse</p>
             </div>
           </form>
         </div>
@@ -68,22 +79,17 @@
         // STORAGE METHODS
         load: function() {
           if (localStorage.getItem('qashStorage')) {
-          this.persistentStorage = JSON.parse(localStorage.getItem('qashStorage'));
+            this.persistentStorage = JSON.parse(localStorage.getItem('qashStorage'));
           }
         },
         clear: function() {
           this.persistentStorage = { sourceFiles: [] };
-          localStorage.removeItem('qashStorage');
-          this.updateStoredState();
         },
         deleteEntry: function(i) {
           this.persistentStorage.sourceFiles.splice(i,1);
         },
         addEntry: function(e) {
           this.persistentStorage.sourceFiles.push(e);
-        },
-        updateStoredState: function() {
-          return this.hasStoredState = localStorage.getItem('qashStorage') ? true : false;
         },
         // END STORAGE METHODS
 
@@ -113,8 +119,13 @@
         persistentStorage: {
           deep: true,
           handler: function(f) {
-            localStorage.setItem('qashStorage', JSON.stringify(f)) == '';
-            this.updateStoredState();
+            if (f.sourceFiles.length > 0) {
+              localStorage.setItem('qashStorage', JSON.stringify(f)) == '';
+            }
+            else {
+              localStorage.removeItem('qashStorage');
+            }
+            this.hasStoredState = localStorage.getItem('qashStorage') ? true : false;
           }
         }
       }
