@@ -24,6 +24,11 @@
           <h1>Qash <span class="text-muted">Personal Finance Analytics</span> <span class="badge badge-warning">PRE-ALPHA</span></h1>
         </div>
       </div>
+      <div class="row">
+        <div class="col">
+          <div id="chart"></div>
+        </div>
+      </div>
       <div class="card">
         <div class="card-header">
           <h4>Source files in local storage
@@ -53,11 +58,6 @@
           </form>
         </div>
       </div>
-      <div class="row">
-        <div class="col">
-          <div id="chart"></div>
-        </div>
-      </div>
       <div class="card">
         <div class="card-header">
           <h4>Transactions</h4>
@@ -73,10 +73,10 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(t, index) in allTransactions">
+            <tr v-for="(t, index) in allTransactions" v-if="index < 100">
               <td>
                 <span class="badge badge-pill" v-bind:class="[t.v<0?'badge-danger':'badge-success']">
-                  {{t.v.toLocaleString('nl-NL', { style: 'currency', currency: 'EUR' })}}
+                  {{formatMoney(t.v)}}
                 </span>
                 <span class="badge badge-pill badge-secondary">{{t.c}}</span>
               </td>
@@ -91,7 +91,27 @@
     </div>
 
     <script>
-      var app = new Vue({
+    const nlLocaleDef = {
+      "decimal": ",",
+      "thousands": ".",
+      "grouping": [3],
+      "currency": ["€\u00a0", ""]
+    }
+    var nlLocale = d3.formatLocale(nlLocaleDef);
+
+    const nlTimeLocaleDef = {
+      "dateTime": "%a %e %B %Y %T",
+      "date": "%d-%m-%Y",
+      "time": "%H:%M:%S",
+      "periods": ["AM", "PM"],
+      "days": ["zondag", "maandag", "dinsdag", "woensdag", "donderdag", "vrijdag", "zaterdag"],
+      "shortDays": ["zo", "ma", "di", "wo", "do", "vr", "za"],
+      "months": ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"],
+      "shortMonths": ["jan", "feb", "mrt", "apr", "mei", "jun", "jul", "aug", "sep", "okt", "nov", "dec"]
+    };
+    var nlTimeLocale = d3.formatLocale(nlLocaleDef);
+
+    var app = new Vue({
       el: '#app',
       data: {
         persistentStorage: {
@@ -104,10 +124,13 @@
               disabled: false,
             },
           },
+          charts: {
+          },
         },
       },
       mounted: function() {
         if (this.hasStoredState) { this.load(); }
+        this.initChart();
       },
       methods: {
         // STORAGE METHODS
@@ -150,7 +173,7 @@
                   r.t = e['Tegenrekening'];
                   r.w = e['Naam / Omschrijving'];
                   r.c = e['Code'];
-                  r.v = parseFloat(e['Bedrag (EUR)']) * (e['Af Bij'] == 'Af' ? -1 : 1);
+                  r.v = parseFloat(e['Bedrag (EUR)'].replace(',', '.')) * (e['Af Bij'] == 'Af' ? -1 : 1);
                   r.a = e['Mededelingen'];
 
                   return r;
@@ -171,11 +194,81 @@
           reader.readAsText(f);
         },
         // END FILE READ METHODS
+
+        // CHART METHODS
+        initChart: function() {
+          var t = []; var inb = []; var out = []; var net = [];
+          var g = this.allTransactionsGroupedByMonth;
+          for (var d in g) {
+            t.push(d);
+            inb.push(g[d].inb);
+            out.push(g[d].out * 1);
+            net.push(g[d].net);
+          }
+
+          var chart = c3.generate({
+            data: {
+              x: 'x',
+              columns: [
+                [].concat('x', t),
+                [].concat('in', inb),
+                [].concat('out', out),
+                [].concat('net', net)
+              ],
+              types: {'in': 'bar', out: 'bar', net: 'line'},
+            },
+            axis: {
+              x: {
+                type: 'timeseries',
+                tick: {
+                  format: '%b \'%y'
+                }
+              },
+              y: {
+                tick: {
+                  format: nlLocale.format("$,")
+                }
+              }
+            }
+          });
+        },
+        // END CHART METHODS
+
+        // FORMATTING METHODS
+        formatMoney: function(v) {
+          return nlLocale.format("$,.2f")(v);
+        }
+        // END FORMATTING METHODS
       },
       computed: {
         allTransactions: function() {
           // TODO deduplication, etc.
           return [].concat.apply([], this.persistentStorage.sourceFiles.map(x => x.data));
+        },
+        allTransactionsGroupedByDate: function() {
+          return d3.nest()
+            .key(function(d) { return d.d.substr(0,4)+'-'+d.d.substr(4,2)+'-'+d.d.substr(6,2); })
+            .rollup(function(v) { return {
+              n: v.length,
+              inb: d3.sum(v, function(d) { return Math.max(0,d.v); }),
+              out: d3.sum(v, function(d) { return Math.min(0,d.v); }),
+              net: d3.sum(v, function(d) { return d.v; })
+            }})
+            .object(this.allTransactions);
+        },
+        allTransactionsGroupedByMonth: function() {
+          return d3.nest()
+            .key(function(d) { return d.d.substr(0,4)+'-'+d.d.substr(4,2)+'-01'; })
+            .rollup(function(v) { return {
+              n: v.length,
+              inb: d3.sum(v, function(d) { return Math.max(0,d.v); }),
+              out: d3.sum(v, function(d) { return Math.min(0,d.v); }),
+              net: d3.sum(v, function(d) { return d.v; })
+            }})
+            .object(this.allTransactions);
+        },
+        accounts: function() {
+          return d3.nest().key(function(d) { return d.f; }).rollup(function(v) { return v.length; }).object(app.allTransactions);
         },
       },
       watch: {
@@ -190,9 +283,12 @@
             }
             this.hasStoredState = localStorage.getItem('qashStorage') ? true : false;
           }
-        }
+        },
+        allTransactionsGroupedByMonth: function(f) {
+          this.initChart();
+        },
       }
-      })
+    });
     </script>
   </body>
 </html>
