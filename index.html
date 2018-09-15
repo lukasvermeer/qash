@@ -65,20 +65,25 @@
         <table class="table">
           <thead>
             <tr>
-              <th scope="col">Date</th>
-              <th scope="col">From</th>
-              <th scope="col">To</th>
-              <th scope="col">Description</th>
               <th scope="col">Amount</th>
+              <th scope="col">Account</th>
+              <th scope="col">Recipient</th>
+              <th scope="col">Description</th>
+              <th scope="col">Date</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(t, index) in allTransactions">
-              <th scope="row">{{t.Datum}}</th>
-              <td>{{t['Rekening']}}</td>
-              <td>{{t['Naam / Omschrijving']}}<br />{{t['Tegenrekening']}}</td>
-              <td><span class="badge badge-pill badge-secondary">{{t['MutatieSoort']}}</span><br />{{t['Mededelingen']}}</td>
-              <td><span class="badge badge-pill" v-bind:class="[t['Af Bij']=='Af'?'badge-danger':'badge-success']">{{t['Af Bij']=='Af' ? '-' : '+'}}{{t['Bedrag (EUR)']}}</span></td>
+              <td>
+                <span class="badge badge-pill" v-bind:class="[t.v<0?'badge-danger':'badge-success']">
+                  {{t.v.toLocaleString('nl-NL', { style: 'currency', currency: 'EUR' })}}
+                </span>
+                <span class="badge badge-pill badge-secondary">{{t.c}}</span>
+              </td>
+              <td>{{t.f}}</td>
+              <td>{{t.w}}<br />{{t.t}}</td>
+              <td>{{t.a}}</td>
+              <th scope="row" class="text-nowrap">{{new Date(t.d / 10000, (t.d % 10000 / 100) - 1, t.d % 100).toLocaleDateString('nl-NL')}}</th>
             </tr>
           </tbody>
         </table>
@@ -136,7 +141,20 @@
             if (e.target.result.slice(0,117) == '"Datum","Naam / Omschrijving","Rekening","Tegenrekening","Code","Af Bij","Bedrag (EUR)","MutatieSoort","Mededelingen"') {
               // ING
               var type = "ing";
-              var data = $.csv.toObjects(e.target.result);
+              var raw = $.csv.toObjects(e.target.result);
+              var data = raw.map(
+                function(e) {
+                  var r = {};
+                  r.d = e['Datum'];
+                  r.f = e['Rekening'];
+                  r.t = e['Tegenrekening'];
+                  r.w = e['Naam / Omschrijving'];
+                  r.c = e['Code'];
+                  r.v = parseFloat(e['Bedrag (EUR)']) * (e['Af Bij'] == 'Af' ? -1 : 1);
+                  r.a = e['Mededelingen'];
+
+                  return r;
+                });
             } else {
               // UNKNOWN FILE TYPE
               var type = "unknown";
