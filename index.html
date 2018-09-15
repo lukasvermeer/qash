@@ -36,7 +36,9 @@
             No data in local storage.
           </li>
           <li class="list-group-item d-flex justify-content-between align-items-center" v-for="(file, index) in persistentStorage.sourceFiles">
-              {{file.name}} <span class="text-muted">({{file.data.length}} transactions)</span>
+              {{file.name}}
+              <span class="badge badge-pill" :class="{'badge-success': file.type=='ing', 'badge-danger': file.type=='unknown'}">{{file.type}}</span>
+              <span class="text-muted">({{file.data.length}} transactions)</span>
               <span class="badge badge-error badge-pill">
                 <a @click.prevent="deleteEntry(index)" href="#">delete</a>
               </span>
@@ -45,7 +47,7 @@
         <div class="card-footer">
           <form>
             <div class="dropbox">
-              <input type="file" multiple :disabled="ui.input.sourceFileAddDisabled" @change="filesChange($event.target.files)" accept=".csv" class="input-file">
+              <input type="file" multiple :disabled="ui.input.sourceFileAdd.disabled" @change="filesChange($event.target.files)" accept=".csv" class="input-file">
               <p>Drag ING Bank .csv file(s) here to begin<br> or click to browse</p>
             </div>
           </form>
@@ -93,7 +95,9 @@
         hasStoredState: localStorage.getItem('qashStorage') ? true : false,
         ui: {
           input: {
-            sourceFileAddDisabled: false,
+            sourceFileAdd: {
+              disabled: false,
+            },
           },
         },
       },
@@ -129,10 +133,20 @@
           if (!f) { return; }
           const reader = new FileReader();
           reader.onload = function(e) {
+            if (e.target.result.slice(0,117) == '"Datum","Naam / Omschrijving","Rekening","Tegenrekening","Code","Af Bij","Bedrag (EUR)","MutatieSoort","Mededelingen"') {
+              // ING
+              var type = "ing";
+              var data = $.csv.toObjects(e.target.result);
+            } else {
+              // UNKNOWN FILE TYPE
+              var type = "unknown";
+              var data = [];
+            }
             var entry = {
               name: f.name, 
               lastModified: f.lastModified, 
-              data: $.csv.toObjects(e.target.result)
+              data: data,
+              type: type,
             };
             app.addEntry(entry);
           };
